@@ -21,11 +21,16 @@
  */
 package org.overture.ide.plugins.poviewer.view;
 
+import java.io.File;
 import java.util.List;
 
+import org.eclipse.core.filesystem.EFS;
+import org.eclipse.core.filesystem.IFileStore;
 import org.eclipse.core.resources.IFile;
+import org.eclipse.core.resources.ResourcesPlugin;
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.IStatus;
+import org.eclipse.core.runtime.Path;
 import org.eclipse.core.runtime.Status;
 import org.eclipse.jface.action.Action;
 import org.eclipse.jface.action.IMenuListener;
@@ -62,6 +67,7 @@ import org.eclipse.ui.IWorkbenchPage;
 import org.eclipse.ui.IWorkbenchPart;
 import org.eclipse.ui.PartInitException;
 import org.eclipse.ui.PlatformUI;
+import org.eclipse.ui.ide.IDE;
 import org.eclipse.ui.part.ViewPart;
 import org.eclipse.ui.progress.UIJob;
 import org.overture.alloy.VdmToAlloy;
@@ -81,6 +87,10 @@ import org.overture.pog.obligation.ProofObligation;
 import org.overture.pog.pub.IProofObligation;
 import org.overture.pog.pub.POStatus;
 
+import edu.mit.csail.sdg.alloy4.Err;
+import edu.mit.csail.sdg.alloy4compiler.translator.A4Solution;
+import edu.mit.csail.sdg.alloy4viz.VizGUI;
+
 public class PoOverviewTableView extends ViewPart implements ISelectionListener {
 
 	protected TableViewer viewer;
@@ -88,6 +98,7 @@ public class PoOverviewTableView extends ViewPart implements ISelectionListener 
 	protected Display display = Display.getCurrent();
 	protected IVdmProject project;
 	protected Action rightClickAction;
+	protected VizGUI viz;
 
 	private ViewerFilter provedFilter = new ViewerFilter() {
 
@@ -430,10 +441,67 @@ public class PoOverviewTableView extends ViewPart implements ISelectionListener 
 						e.printStackTrace();
 					}
 					//--------------------------------------------------------------------
-					MessageDialog.openInformation(
-							viewer.getControl().getShell(),
-							"Alloy Analyser",
-							vtm.getResult());
+
+					String command = vtm.getCommand();
+					System.out.println("PATH: " + vtm.getFilename());
+					final File fileToOpen = new File(vtm.getFilename());
+					final A4Solution ans = vtm.getANS();
+					
+					if (!ans.satisfiable()) {
+						MessageDialog.openInformation(
+								viewer.getControl().getShell(),
+								"Alloy Analyser Outcome",
+								"UNSAT");
+					}
+					else {
+						String outcome = command + ans.toString();
+						
+						MessageDialog result = 
+								new MessageDialog(null, "Alloy Analyser Outcome", null,
+										outcome, MessageDialog.CONFIRM,
+										new String[]{"Open Visualizer", "Get Model", "Close"}, 2) {
+							protected void buttonPressed(int buttonId) {
+							    setReturnCode(buttonId);
+							    switch (buttonId) {
+							    	case 0:	
+							    		System.out.println("Open Visualizer");
+							    		if (ans.satisfiable()) {
+						                    try {
+												ans.writeXML("alloy_output.xml");
+											} catch (Err e) {
+												// TODO Auto-generated catch block
+												e.printStackTrace();
+											}
+						                    if (viz==null)
+						                        viz = new VizGUI(false, "alloy_output.xml", null);
+						                    else
+						                        viz.loadXML("alloy_output.xml", true);
+						                }
+							    		break;
+							    	case 1:
+							    		System.out.println("Get Model");
+							    		if (fileToOpen.exists() && fileToOpen.isFile()) {
+							    		    IFileStore fileStore = EFS.getLocalFileSystem().getStore(fileToOpen.toURI());
+							    		    IWorkbenchPage page = PlatformUI.getWorkbench().getActiveWorkbenchWindow().getActivePage();
+							    		 
+							    		    try {
+							    		        IDE.openEditorOnFileStore( page, fileStore );
+							    		    } catch ( PartInitException e ) {
+							    		        //Put your exception handler here if you wish to
+							    		    }
+							    		}
+							    		break;
+							    	case 2:
+							    		System.out.println("Close");
+							    		close();
+							    		break;
+							    	default:
+							    		close();
+							    		break;
+							    }
+							}};
+							result.open();
+					}
 				}
 			}
 		};

@@ -22,7 +22,8 @@ Require-Bundle: org.eclipse.ui.console,
  org.overture.ide.core,
  org.overture.ide.ui,
  org.overture.ide.parsers.vdmj,
- org.overture.ide.builders.vdmj
+ org.overture.ide.builders.vdmj,
+ org.eclipse.equinox.registry
 Bundle-Activator: org.overture.ide.plugins.poviewer.Activator
 Bundle-ClassPath: .,
  jars/pog.jar,
@@ -30,4 +31,5 @@ Bundle-ClassPath: .,
  jars/alloyextension.jar,
  jars/alloy.jar,
  jars/commons-cli-1.2.jar
-Import-Package: org.overture.ide.vdmsl.ui.editor.syntax
+Import-Package: org.eclipse.core.filesystem,
+ org.overture.ide.vdmsl.ui.editor.syntax
