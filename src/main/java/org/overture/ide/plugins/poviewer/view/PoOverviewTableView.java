@@ -27,16 +27,14 @@ import java.util.List;
 import org.eclipse.core.filesystem.EFS;
 import org.eclipse.core.filesystem.IFileStore;
 import org.eclipse.core.resources.IFile;
-import org.eclipse.core.resources.ResourcesPlugin;
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.IStatus;
-import org.eclipse.core.runtime.Path;
 import org.eclipse.core.runtime.Status;
 import org.eclipse.jface.action.Action;
-import org.eclipse.jface.action.IMenuListener;
-import org.eclipse.jface.action.IMenuManager;
 import org.eclipse.jface.action.IToolBarManager;
 import org.eclipse.jface.action.MenuManager;
+import org.eclipse.jface.dialogs.IInputValidator;
+import org.eclipse.jface.dialogs.InputDialog;
 import org.eclipse.jface.dialogs.MessageDialog;
 import org.eclipse.jface.viewers.ColumnWeightData;
 import org.eclipse.jface.viewers.DoubleClickEvent;
@@ -53,11 +51,11 @@ import org.eclipse.jface.viewers.TableViewer;
 import org.eclipse.jface.viewers.Viewer;
 import org.eclipse.jface.viewers.ViewerFilter;
 import org.eclipse.jface.viewers.ViewerSorter;
+import org.eclipse.jface.window.Window;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.graphics.Image;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Display;
-import org.eclipse.swt.widgets.Menu;
 import org.eclipse.swt.widgets.TableColumn;
 import org.eclipse.ui.IActionBars;
 import org.eclipse.ui.ISelectionListener;
@@ -419,94 +417,104 @@ public class PoOverviewTableView extends ViewPart implements ISelectionListener 
 			public void run() {
 				Object selected = ((IStructuredSelection) viewer.getSelection()).getFirstElement();
 				if (selected instanceof ProofObligation) {
-					ProofObligation po = (ProofObligation) selected;
-					//--------------------------------------------------------------------
-					/*System.out.println("getDefPredString: " + po.getDefPredString());
-					System.out.println("getFullPredString: " + po.getFullPredString());
-					System.out.println("getName: " + po.getName());
-					System.out.println("getNumber: " + po.getNumber());
-					System.out.println("getLocation: " + po.getLocation());
-					System.out.println("qwr: " + po.getLocation().getModule());
-					System.out.println("qwr1: " + po.getLocation().toString());
-					System.out.println("qwr2: " + po.getLocation().getFile().toPath().toString());
-					System.out.println("qwr3: " + po.getLocation().getModule());
-					System.out.println("getSimpleName: " + po.getNode().getClass().getSimpleName());
-					System.out.println("getStatus: " + po.getStatus().toString());*/
-					VdmToAlloy vtm = new VdmToAlloy("3", true, po.getName(), po.getNode().getClass().getSimpleName(), po.getLocation().getFile().toPath().toString());
-					try {
-						if(vtm.execute()==1)
-						    System.out.println(vtm.error);
-					} catch (Exception e) {
-						// TODO Auto-generated catch block
-						e.printStackTrace();
-					}
-					//--------------------------------------------------------------------
-
-					String command = vtm.getCommand();
-					System.out.println("PATH: " + vtm.getFilename());
-					final File fileToOpen = new File(vtm.getFilename());
-					final A4Solution ans = vtm.getANS();
 					
-					if (!ans.satisfiable()) {
-						MessageDialog.openInformation(
-								viewer.getControl().getShell(),
-								"Alloy Analyser Outcome",
-								"UNSAT");
-					}
-					else {
-						String outcome = command + ans.toString();
+					ProofObligation po = (ProofObligation) selected;
+					
+					IInputValidator valScope = new IInputValidator() { //Validates the scope input
+						@Override
+						public String isValid(String arg0) {
+							String res = null;
+							try {
+								int scope = Integer.parseInt(arg0);
+								if (scope < 0)
+									res = "Error with input scope!";
+							} catch (Exception e) {
+								res = "Error with input scope!";
+							}
+							return res;
+						}};
+					
+					String scope = "3";
+					InputDialog inputDialog = new InputDialog(null, "Alloy Analyser", "Choose your scope: ", "3", valScope);
+				    if (inputDialog.open() != Window.OK)
+				    	System.out.println("closed");
+				    else {
+				    	System.out.println(scope);
+				    	scope = inputDialog.getValue();
+					
+						VdmToAlloy vtm = new VdmToAlloy(scope, true, po.getName(), po.getNode().getClass().getSimpleName(), po.getLocation().getFile().toPath().toString());
+						try {
+							if(vtm.execute() == 1)
+							    System.out.println(vtm.error);
+						} catch (Exception e) {
+							e.printStackTrace();
+						}
+	
+						String command = vtm.getCommand();
+						System.out.println("PATH: " + vtm.getFilename());
+						final File fileToOpen = new File(vtm.getFilename());
+						final A4Solution ans = vtm.getANS();
 						
-						MessageDialog result = 
-								new MessageDialog(null, "Alloy Analyser Outcome", null,
-										outcome, MessageDialog.CONFIRM,
-										new String[]{"Open Visualizer", "Get Model", "Close"}, 2) {
-							protected void buttonPressed(int buttonId) {
-							    setReturnCode(buttonId);
-							    switch (buttonId) {
-							    	case 0:	
-							    		System.out.println("Open Visualizer");
-							    		if (ans.satisfiable()) {
-						                    try {
-												ans.writeXML("alloy_output.xml");
-											} catch (Err e) {
-												// TODO Auto-generated catch block
-												e.printStackTrace();
-											}
-						                    if (viz==null)
-						                        viz = new VizGUI(false, "alloy_output.xml", null);
-						                    else
-						                        viz.loadXML("alloy_output.xml", true);
-						                }
-							    		break;
-							    	case 1:
-							    		System.out.println("Get Model");
-							    		if (fileToOpen.exists() && fileToOpen.isFile()) {
-							    		    IFileStore fileStore = EFS.getLocalFileSystem().getStore(fileToOpen.toURI());
-							    		    IWorkbenchPage page = PlatformUI.getWorkbench().getActiveWorkbenchWindow().getActivePage();
-							    		 
-							    		    try {
-							    		        IDE.openEditorOnFileStore( page, fileStore );
-							    		    } catch ( PartInitException e ) {
-							    		        //Put your exception handler here if you wish to
-							    		    }
-							    		}
-							    		break;
-							    	case 2:
-							    		System.out.println("Close");
-							    		close();
-							    		break;
-							    	default:
-							    		close();
-							    		break;
-							    }
-							}};
-							result.open();
+						if (!ans.satisfiable()) {
+							MessageDialog.openInformation(
+									viewer.getControl().getShell(),
+									"Alloy Analyser Outcome",
+									"UNSAT");
+						}
+						else {
+							String outcome = command + ans.toString();
+							
+							MessageDialog result = 
+									new MessageDialog(null, "Alloy Analyser Outcome", null,
+											outcome, MessageDialog.CONFIRM,
+											new String[]{"Open Visualizer", "Get Model", "Close"}, 2) {
+								protected void buttonPressed(int buttonId) {
+								    setReturnCode(buttonId);
+								    switch (buttonId) {
+								    	case 0:	
+								    		System.out.println("Open Visualizer");
+								    		if (ans.satisfiable()) {
+							                    try {
+													ans.writeXML("alloy_output.xml");
+												} catch (Err e) {
+													e.printStackTrace();
+												}
+							                    if (viz==null)
+							                        viz = new VizGUI(false, "alloy_output.xml", null);
+							                    else
+							                        viz.loadXML("alloy_output.xml", true);
+							                }
+								    		break;
+								    	case 1:
+								    		System.out.println("Get Model");
+								    		if (fileToOpen.exists() && fileToOpen.isFile()) {
+								    		    IFileStore fileStore = EFS.getLocalFileSystem().getStore(fileToOpen.toURI());
+								    		    IWorkbenchPage page = PlatformUI.getWorkbench().getActiveWorkbenchWindow().getActivePage();
+								    		 
+								    		    try {
+								    		        IDE.openEditorOnFileStore( page, fileStore );
+								    		    } catch ( PartInitException e ) {
+								    		        //Put your exception handler here if you wish to
+								    		    }
+								    		}
+								    		break;
+								    	case 2:
+								    		System.out.println("Close");
+								    		close();
+								    		break;
+								    	default:
+								    		close();
+								    		break;
+								    }
+								}};
+								result.open();
+						}
 					}
 				}
 			}
 		};
-		rightClickAction.setText("Check habitability");
-		rightClickAction.setToolTipText("Check habitability with Alloy Analyser");
+		rightClickAction.setText("Discharge PO with Alloy");
+		rightClickAction.setToolTipText("Discharge PO with Alloy Analyser");
 		rightClickAction.setImageDescriptor(PlatformUI.getWorkbench().getSharedImages().
 		getImageDescriptor(ISharedImages.IMG_OBJS_INFO_TSK));
 	}
