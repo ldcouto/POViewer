@@ -31,6 +31,6 @@ Bundle-ClassPath: .,
  jars/vdm2alloy.jar,
  jars/alloyextension.jar,
  jars/alloy.jar,
- jars/commons-cli-1.2.jar
+ jars/commons-cli.jar
 Import-Package: org.eclipse.core.filesystem,
  org.overture.ide.vdmsl.ui.editor.syntax
