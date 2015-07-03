@@ -429,37 +429,34 @@ public class PoOverviewTableView extends ViewPart implements ISelectionListener 
 								if (scope < 0)
 									res = "Error with input scope!";
 							} catch (Exception e) {
+								System.err.println("Error with input scope!");
 								res = "Error with input scope!";
 							}
 							return res;
 						}};
 					
-					String scope = "3";
+					String scope = "3"; //default scope
 					InputDialog inputDialog = new InputDialog(null, "Alloy Analyser", "Choose your scope: ", "3", valScope);
 				    if (inputDialog.open() != Window.OK)
-				    	System.out.println("closed");
+				    	System.err.println("Window is closed");
 				    else {
-				    	System.out.println(scope);
 				    	scope = inputDialog.getValue();
 					
 						VdmToAlloy vtm = new VdmToAlloy(scope, true, po.getName(), po.getNode().getClass().getSimpleName(), po.getLocation().getFile().toPath().toString());
 						try {
 							if(vtm.execute() == 1)
-							    System.out.println(vtm.error);
+							    System.err.println(vtm.error);//FIX WITH GET
 						} catch (Exception e) {
 							e.printStackTrace();
 						}
 	
 						String command = vtm.getCommand();
-						System.out.println("PATH: " + vtm.getFilename());
+						System.out.println("Alloy Translation filepath: " + vtm.getFilename());
 						final File fileToOpen = new File(vtm.getFilename());
 						final A4Solution ans = vtm.getANS();
 						
 						if (!ans.satisfiable()) {
-							MessageDialog.openInformation(
-									viewer.getControl().getShell(),
-									"Alloy Analyser Outcome",
-									"UNSAT");
+							displayMessage("Alloy Analyser Outcome", "UNSATISFIABLE");
 						}
 						else {
 							String outcome = command + ans.toString();
@@ -472,11 +469,12 @@ public class PoOverviewTableView extends ViewPart implements ISelectionListener 
 								    setReturnCode(buttonId);
 								    switch (buttonId) {
 								    	case 0:	
-								    		System.out.println("Open Visualizer");
+								    		//Open Visualizer
 								    		if (ans.satisfiable()) {
 							                    try {
 													ans.writeXML("alloy_output.xml");
 												} catch (Err e) {
+													displayMessage("Error", "Can't write model to file");
 													e.printStackTrace();
 												}
 							                    if (viz==null)
@@ -486,7 +484,7 @@ public class PoOverviewTableView extends ViewPart implements ISelectionListener 
 							                }
 								    		break;
 								    	case 1:
-								    		System.out.println("Get Model");
+								    		//Get Model
 								    		if (fileToOpen.exists() && fileToOpen.isFile()) {
 								    		    IFileStore fileStore = EFS.getLocalFileSystem().getStore(fileToOpen.toURI());
 								    		    IWorkbenchPage page = PlatformUI.getWorkbench().getActiveWorkbenchWindow().getActivePage();
@@ -494,12 +492,13 @@ public class PoOverviewTableView extends ViewPart implements ISelectionListener 
 								    		    try {
 								    		        IDE.openEditorOnFileStore( page, fileStore );
 								    		    } catch ( PartInitException e ) {
-								    		        //Put your exception handler here if you wish to
+								    		    	displayMessage("Error", "Can't open Alloy model.");
+								    		        e.printStackTrace();
 								    		    }
 								    		}
 								    		break;
 								    	case 2:
-								    		System.out.println("Close");
+								    		//Close
 								    		close();
 								    		break;
 								    	default:
@@ -517,6 +516,13 @@ public class PoOverviewTableView extends ViewPart implements ISelectionListener 
 		rightClickAction.setToolTipText("Discharge PO with Alloy Analyser");
 		rightClickAction.setImageDescriptor(PlatformUI.getWorkbench().getSharedImages().
 		getImageDescriptor(ISharedImages.IMG_OBJS_INFO_TSK));
+	}
+	
+	private void displayMessage (String title, String message) {
+		MessageDialog.openInformation(
+				viewer.getControl().getShell(),
+				title,
+				message);
 	}
 
 	protected void hookDoubleClickAction() {
