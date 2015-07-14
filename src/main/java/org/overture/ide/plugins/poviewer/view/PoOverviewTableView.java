@@ -434,8 +434,6 @@ public class PoOverviewTableView extends ViewPart implements ISelectionListener 
 					ProofObligation po = (ProofObligation) selected;
 					
 					if (po.getKindString().equals("type invariant satisfiable")) {
-					
-						System.out.println("POTYPE: " + po.getKindString());
 						
 						//pre-processing to see if the model has natural numbers
 						VdmToAlloy pre = new VdmToAlloy(po.getName(), po.getNode().getClass().getSimpleName(), po.getLocation().getFile().toPath().toString());
