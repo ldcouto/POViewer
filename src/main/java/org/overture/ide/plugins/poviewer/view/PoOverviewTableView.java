@@ -433,157 +433,165 @@ public class PoOverviewTableView extends ViewPart implements ISelectionListener 
 					
 					ProofObligation po = (ProofObligation) selected;
 					
-					//pre-processing to see if the model has natural numbers
-					VdmToAlloy pre = new VdmToAlloy(po.getName(), po.getNode().getClass().getSimpleName(), po.getLocation().getFile().toPath().toString());
+					if (po.getKindString().equals("type invariant satisfiable")) {
 					
-					IInputValidator valScope = new IInputValidator() { //Validates the scope input
-						@Override
-						public String isValid(String arg0) {
-							String res = null;
-							try {
-								int scope = Integer.parseInt(arg0);
-								if (scope < 0)
+						System.out.println("POTYPE: " + po.getKindString());
+						
+						//pre-processing to see if the model has natural numbers
+						VdmToAlloy pre = new VdmToAlloy(po.getName(), po.getNode().getClass().getSimpleName(), po.getLocation().getFile().toPath().toString());
+						
+						IInputValidator valScope = new IInputValidator() { //Validates the scope input
+							@Override
+							public String isValid(String arg0) {
+								String res = null;
+								try {
+									int scope = Integer.parseInt(arg0);
+									if (scope < 0)
+										res = "Error with input scope!";
+								} catch (Exception e) {
+									System.err.println("Error with input scope!");
 									res = "Error with input scope!";
-							} catch (Exception e) {
-								System.err.println("Error with input scope!");
-								res = "Error with input scope!";
+								}
+								return res;
+							}};
+						
+						String scope = "3"; //default scope
+						String intScope = "0"; //int scope
+						
+						InputDialog scope1 = new InputDialog(null, "Alloy Analyser", "Choose your scope: ", "3", valScope);
+					    if (scope1.open() == Window.OK) {
+					    	scope = scope1.getValue();
+					    	
+					    	try {
+								if (pre.hasNaturalType()) {
+									InputDialog scope2 = new InputDialog(null, "Alloy Analyser", "and Int scope: ", "3", valScope);
+								    if (scope2.open() == Window.OK) {
+								    	intScope = scope2.getValue();
+								    }
+								}
+							} catch (AnalysisException | IOException e1) {
+								// TODO Auto-generated catch block
+								e1.printStackTrace();
 							}
-							return res;
-						}};
-					
-					String scope = "3"; //default scope
-					String intScope = "0"; //int scope
-					
-					InputDialog scope1 = new InputDialog(null, "Alloy Analyser", "Choose your scope: ", "3", valScope);
-				    if (scope1.open() == Window.OK) {
-				    	scope = scope1.getValue();
-				    	
-				    	try {
-							if (pre.hasNaturalType()) {
-								InputDialog scope2 = new InputDialog(null, "Alloy Analyser", "and Int scope: ", "3", valScope);
-							    if (scope2.open() == Window.OK) {
-							    	intScope = scope2.getValue();
-							    }
-							}
-						} catch (AnalysisException | IOException e1) {
-							// TODO Auto-generated catch block
-							e1.printStackTrace();
-						}
-					
-				    	VdmToAlloy vtm = new VdmToAlloy(intScope, scope, true, po.getName(), po.getNode().getClass().getSimpleName(), po.getLocation().getFile().toPath().toString());
-						try {
-							if(vtm.execute() == 1) {
-							    System.err.println(vtm.getError());
-							    displayMessage("An error occurred", vtm.getError());
-							}
-							else {
-								String filename = vtm.getFilename();
-								A4Reporter rep = new A4Reporter() {
-					                @Override 
-					                public void warning(ErrorWarning msg) {
-					                    System.out.print("Warning:\n"+(msg.toString().trim())+"\n\n");
-					                    System.out.flush();
-					                }
-					            };
-					            
-					            System.out.println("=========== Parsing+Typechecking "+filename+" =============");
-					            String run = null;
-					
-					            try {
-					                Module world = CompUtil.parseEverything_fromFile(rep, null, filename);
-					                String[] cmds = new String [world.getAllCommands().size()];
-					                // Choose some default options for how you want to execute the commands
-					                A4Options options = new A4Options();
-			
-					                options.solver = A4Options.SatSolver.SAT4J;
-					                int i = 0;
-					                for (Command command : world.getAllCommands()) {
-					                	cmds[i] = command.toString();
-					                    System.out.println("============ Command " + command + ": ============");
-					                    i++;
-					                }
-					                run = (String)JOptionPane.showInputDialog( //what if cancel?
-			                                null,
-			                                "Please choose which command you want to run: ",
-			                                "Choose Command",
-			                                JOptionPane.PLAIN_MESSAGE,
-			                                null,
-			                                cmds,
-			                                cmds[0]);
+						
+					    	VdmToAlloy vtm = new VdmToAlloy(intScope, scope, true, po.getName(), po.getNode().getClass().getSimpleName(), po.getLocation().getFile().toPath().toString());
+							try {
+								if(vtm.execute() == 1) {
+								    System.err.println(vtm.getError());
+								    displayMessage("An error occurred", vtm.getError());
+								}
+								else {
+									String filename = vtm.getFilename();
+									A4Reporter rep = new A4Reporter() {
+						                @Override 
+						                public void warning(ErrorWarning msg) {
+						                    System.out.print("Warning:\n"+(msg.toString().trim())+"\n\n");
+						                    System.out.flush();
+						                }
+						            };
 						            
-						            if ((run != null) && (run.length() > 0)) {
-						                System.out.println(run);
-						            }
-						            Command cmnd = null;
-						            for (Command command : world.getAllCommands()) {
-					                	if (run.toString().equals(command.toString()))
-					                		cmnd = command;
-					                }
-						            
-						            final A4Solution ans = TranslateAlloyToKodkod.execute_command(rep, world.getAllReachableSigs(), cmnd, options);
+						            System.out.println("=========== Parsing+Typechecking "+filename+" =============");
+						            String run = null;
+						
+						            try {
+						                Module world = CompUtil.parseEverything_fromFile(rep, null, filename);
+						                String[] cmds = new String [world.getAllCommands().size()];
+						                // Choose some default options for how you want to execute the commands
+						                A4Options options = new A4Options();
 				
-									System.out.println("Alloy Translation filepath: " + vtm.getFilename());
-									final File fileToOpen = new File(vtm.getFilename());
-									
-									if (!ans.satisfiable()) {
-										displayMessage("Alloy Analyser Outcome", "UNSATISFIABLE");
-									}
-									else {
-										String outcome = run + ans.toString();
+						                options.solver = A4Options.SatSolver.SAT4J;
+						                int i = 0;
+						                for (Command command : world.getAllCommands()) {
+						                	cmds[i] = command.toString();
+						                    System.out.println("============ Command " + command + ": ============");
+						                    i++;
+						                }
+						                run = (String)JOptionPane.showInputDialog( //what if cancel?
+				                                null,
+				                                "Please choose which command you want to run: ",
+				                                "Choose Command",
+				                                JOptionPane.PLAIN_MESSAGE,
+				                                null,
+				                                cmds,
+				                                cmds[0]);
+							            
+							            if ((run != null) && (run.length() > 0)) {
+							                System.out.println(run);
+							            }
+							            Command cmnd = null;
+							            for (Command command : world.getAllCommands()) {
+						                	if (run.toString().equals(command.toString()))
+						                		cmnd = command;
+						                }
+							            
+							            final A4Solution ans = TranslateAlloyToKodkod.execute_command(rep, world.getAllReachableSigs(), cmnd, options);
+					
+										System.out.println("Alloy Translation filepath: " + vtm.getFilename());
+										final File fileToOpen = new File(vtm.getFilename());
 										
-										MessageDialog result = 
-												new MessageDialog(null, "Alloy Analyser Outcome", null,
-														outcome, MessageDialog.CONFIRM,
-														new String[]{"Open Visualizer", "Get Model", "Close"}, 2) {
-											protected void buttonPressed(int buttonId) {
-											    setReturnCode(buttonId);
-											    switch (buttonId) {
-											    	case 0:	
-											    		//Open Visualizer
-									                    try {
-															ans.writeXML("alloy_output.xml");
-														} catch (Err e) {
-															displayMessage("Error", "Can't write model to file");
-															e.printStackTrace();
-														}
-									                    if (viz==null)
-									                        viz = new VizGUI(false, "alloy_output.xml", null);
-									                    else
-									                        viz.loadXML("alloy_output.xml", true);
-											    		break;
-											    	case 1:
-											    		//Get Model
-											    		if (fileToOpen.exists() && fileToOpen.isFile()) {
-											    		    IFileStore fileStore = EFS.getLocalFileSystem().getStore(fileToOpen.toURI());
-											    		    IWorkbenchPage page = PlatformUI.getWorkbench().getActiveWorkbenchWindow().getActivePage();
-											    		 
-											    		    try {
-											    		        IDE.openEditorOnFileStore( page, fileStore );
-											    		    } catch ( PartInitException e ) {
-											    		    	displayMessage("Error", "Can't open Alloy model.");
-											    		        e.printStackTrace();
-											    		    }
-											    		}
-											    		break;
-											    	case 2:
-											    		//Close
-											    		close();
-											    		break;
-											    	default:
-											    		close();
-											    		break;
-											    }
-											}};
-											result.open();
-									}
-					            }
-					            catch (Exception e) {
-					            	e.printStackTrace();
-					            }
+										if (!ans.satisfiable()) {
+											displayMessage("Alloy Analyser Outcome", "UNSATISFIABLE");
+										}
+										else {
+											String outcome = run + ans.toString();
+											
+											MessageDialog result = 
+													new MessageDialog(null, "Alloy Analyser Outcome", null,
+															outcome, MessageDialog.CONFIRM,
+															new String[]{"Open Visualizer", "Get Model", "Close"}, 2) {
+												protected void buttonPressed(int buttonId) {
+												    setReturnCode(buttonId);
+												    switch (buttonId) {
+												    	case 0:	
+												    		//Open Visualizer
+										                    try {
+																ans.writeXML("alloy_output.xml");
+															} catch (Err e) {
+																displayMessage("Error", "Can't write model to file");
+																e.printStackTrace();
+															}
+										                    if (viz==null)
+										                        viz = new VizGUI(false, "alloy_output.xml", null);
+										                    else
+										                        viz.loadXML("alloy_output.xml", true);
+												    		break;
+												    	case 1:
+												    		//Get Model
+												    		if (fileToOpen.exists() && fileToOpen.isFile()) {
+												    		    IFileStore fileStore = EFS.getLocalFileSystem().getStore(fileToOpen.toURI());
+												    		    IWorkbenchPage page = PlatformUI.getWorkbench().getActiveWorkbenchWindow().getActivePage();
+												    		 
+												    		    try {
+												    		        IDE.openEditorOnFileStore( page, fileStore );
+												    		    } catch ( PartInitException e ) {
+												    		    	displayMessage("Error", "Can't open Alloy model.");
+												    		        e.printStackTrace();
+												    		    }
+												    		}
+												    		break;
+												    	case 2:
+												    		//Close
+												    		close();
+												    		break;
+												    	default:
+												    		close();
+												    		break;
+												    }
+												}};
+												result.open();
+										}
+						            }
+						            catch (Exception e) {
+						            	e.printStackTrace();
+						            }
+								}
+							} catch (Exception e) {
+								e.printStackTrace();
 							}
-						} catch (Exception e) {
-							e.printStackTrace();
 						}
+					}
+					else {
+						displayMessage("PO Type", "This PO Type is not supported");
 					}
 				}
 			}
